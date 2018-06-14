@@ -74,6 +74,14 @@ def second_pass( commands, num_frames ):
                     frames[f][knob_name] = start_value + delta * (f - start_frame)
     return frames
 
+def light_pass(symbols):
+    lights = {}
+    ambient = [255, 255, 255]
+    for s in symbols:
+        if symbols[s][0] == 'light': lights[s] = symbols[s][1]
+        elif s == 'ambient': ambient = symbols[s][1:]
+    return (lights, ambient)
+
 def run(filename):
     """
     This function runs an mdl script
@@ -88,6 +96,7 @@ def run(filename):
 
     (name, num_frames) = first_pass(commands)
     frames = second_pass(commands, num_frames)
+    (lights, ambient) = light_pass(symbols)
 
     for f in range(num_frames):
         view = [0,
@@ -120,11 +129,10 @@ def run(filename):
         screen = new_screen()
         zbuffer = new_zbuffer()
         tmp = []
-        step_3d = 20
+        step_3d = 50
         consts = ''
         coords = []
         coords1 = []
-        knob_value = 1
 
         if num_frames > 1:
             for knob in frames[f]:
@@ -145,19 +153,19 @@ def run(filename):
                         args[0], args[1], args[2],
                         args[3], args[4], args[5])
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect)
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
                 tmp = []
             elif c == 'sphere':
                 add_sphere(tmp,
                            args[0], args[1], args[2], args[3], step_3d)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect)
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
                 tmp = []
             elif c == 'torus':
                 add_torus(tmp,
                           args[0], args[1], args[2], args[3], args[4], step_3d)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect)
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
                 tmp = []
             elif c == 'line':
                 if isinstance(args[0], str):
@@ -173,23 +181,25 @@ def run(filename):
                 matrix_mult( stack[-1], tmp )
                 draw_lines(tmp, screen, zbuffer, color)
                 tmp = []
+            elif c == 'mesh':
+                add_mesh(tmp, args[0])
+                matrix_mult( stack[-1], tmp )
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
+                tmp = []
             elif c == 'move':
-                if command["knob"]:
-                    knob_value = symbols[command["knob"]][1]
+                knob_value = symbols[command["knob"]][1] if command["knob"] else 1
                 tmp = make_translate(args[0] * knob_value, args[1] * knob_value, args[2] * knob_value)
                 matrix_mult(stack[-1], tmp)
                 stack[-1] = [x[:] for x in tmp]
                 tmp = []
             elif c == 'scale':
-                if command["knob"]:
-                    knob_value = symbols[command["knob"]][1]
+                knob_value = symbols[command["knob"]][1] if command["knob"] else 1
                 tmp = make_scale(args[0] * knob_value, args[1] * knob_value, args[2] * knob_value)
                 matrix_mult(stack[-1], tmp)
                 stack[-1] = [x[:] for x in tmp]
                 tmp = []
             elif c == 'rotate':
-                if command["knob"]:
-                    knob_value = symbols[command["knob"]][1]
+                knob_value = symbols[command["knob"]][1] if command["knob"] else 1
                 theta = args[1] * (math.pi/180) * knob_value
                 if args[0] == 'x':
                     tmp = make_rotX(theta)
